@@ -2,7 +2,7 @@
 namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
-
+use Auth;
 class UsersController extends Controller
 {
     public function create(){
@@ -26,6 +26,8 @@ class UsersController extends Controller
            'email' => $request->email,
            'password' => bcrypt($request->password),
        ]);
+      //  调用登录方法 直接登录
+       Auth::login($user);
       //  使用sessoin 赋值方法为flash，键和值
        session()->flash('success', '欢迎，您将在这里开启一段新的旅程~');
       //  重定向至个人中心 并传值
