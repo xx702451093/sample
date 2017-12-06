@@ -3,12 +3,13 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Auth;
+use Mail;
 class UsersController extends Controller
 {
-  // 中间件 利用auth验证 除了create store方法不需要登录 其他方法必须经过登录
+  // 中间件 利用auth验证 除了create store index方法不需要登录 其他方法必须经过登录
     public function __construct(){
        $this->middleware('auth', [
-           'except' => ['create', 'store','index']
+           'except' => ['show','create', 'store','index','confirmEmail']
        ]);
       //  访客 （未登录用户才能访问）
        $this->middleware('guest', [
@@ -19,6 +20,7 @@ class UsersController extends Controller
     // 所有用户列表
     public function index(){
       //  $users = User::all();
+      // 分页查询
        $users = User::paginate(10);
        return view('users.index', compact('users'));
      }
@@ -46,11 +48,16 @@ class UsersController extends Controller
            'password' => bcrypt($request->password),
        ]);
       //  调用登录方法 直接登录
-       Auth::login($user);
+      //  Auth::login($user);
       //  使用sessoin 赋值方法为flash，键和值
-       session()->flash('success', '欢迎，您将在这里开启一段新的旅程~');
+      //  session()->flash('success', '欢迎，您将在这里开启一段新的旅程~');
       //  重定向至个人中心 并传值
-        return redirect()->route('users.show', [$user]);
+      // return redirect()->route('users.show', [$user]);
+
+      // 发送激活邮件
+       $this->sendEmailConfirmationTo($user);
+       session()->flash('success', '验证邮件已发送到你的注册邮箱上，请注意查收。');
+       return redirect('/');
     }
 
     // 编辑页面 利用了 Laravel 的『隐性路由模型绑定』功能，直接读取对应 ID 的用户实例 $user，未找到则报错；
@@ -86,4 +93,36 @@ class UsersController extends Controller
        session()->flash('success', '成功删除用户！');
        return back();
    }
+
+  //  发送邮件
+  protected function sendEmailConfirmationTo($user)
+    {
+        $view = 'emails.confirm';  //视图名称
+        $data = compact('user');   //数据数组
+        $from = 'kingofrockme@163.com';  //发送者
+        $name = 'kingofrockme';   //发送者名
+        $to = $user->email;   //接受者
+        $subject = "感谢注册 Sample 应用！请确认你的邮箱。";   //邮件主题
+
+        // 第一个参数是包含邮件消息的视图名称。
+        // 第二个参数是要传递给该视图的数据数组。
+        // 最后是一个用来接收邮件消息实例的闭包回调，我们可以在该回调中自定义邮件消息的发送者、接收者、邮件主题等信息。
+        Mail::send($view, $data, function ($message) use ($from, $name, $to, $subject) {
+            $message->from($from, $name)->to($to)->subject($subject);
+        });
+    }
+
+    // 检测邮件激活
+    public function confirmEmail($token)
+    {
+        $user = User::where('activation_token', $token)->firstOrFail();
+
+        $user->activated = true;
+        $user->activation_token = null;
+        $user->save();
+
+        Auth::login($user);
+        session()->flash('success', '恭喜你，激活成功！');
+        return redirect()->route('users.show', [$user]);
+    }
 }
