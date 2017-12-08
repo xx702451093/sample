@@ -31,7 +31,12 @@ class UsersController extends Controller
     }
     // 个人中心
     public function show(User $user){
-      return view('users.show', compact('user'));
+      // 查询微博 创建时间倒序 分页 每页30条
+      $statuses = $user->statuses()
+                           ->orderBy('created_at', 'desc')
+                           ->paginate(30);
+      //  加载模板 传值user和statuses 
+      return view('users.show', compact('user','statuses'));
     }
     // 注册
     public function store(Request $request){
